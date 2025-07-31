@@ -1,57 +1,28 @@
-import { z } from 'zod';
-import type { getWeather } from './ai/tools/get-weather';
-import type { createDocument } from './ai/tools/create-document';
-import type { updateDocument } from './ai/tools/update-document';
-import type { requestSuggestions } from './ai/tools/request-suggestions';
-import type { InferUITool, UIMessage } from 'ai';
-
-import type { ArtifactKind } from '@/components/artifact';
-import type { Suggestion } from './db/schema';
-
-export type DataPart = { type: 'append-message'; message: string };
-
-export const messageMetadataSchema = z.object({
-  createdAt: z.string(),
-});
-
-export type MessageMetadata = z.infer<typeof messageMetadataSchema>;
-
-type weatherTool = InferUITool<typeof getWeather>;
-type createDocumentTool = InferUITool<ReturnType<typeof createDocument>>;
-type updateDocumentTool = InferUITool<ReturnType<typeof updateDocument>>;
-type requestSuggestionsTool = InferUITool<
-  ReturnType<typeof requestSuggestions>
->;
-
-export type ChatTools = {
-  getWeather: weatherTool;
-  createDocument: createDocumentTool;
-  updateDocument: updateDocumentTool;
-  requestSuggestions: requestSuggestionsTool;
-};
-
-export type CustomUIDataTypes = {
-  textDelta: string;
-  imageDelta: string;
-  sheetDelta: string;
-  codeDelta: string;
-  suggestion: Suggestion;
-  appendMessage: string;
-  id: string;
+export interface Task {
+  id: number;
   title: string;
-  kind: ArtifactKind;
-  clear: null;
-  finish: null;
-};
+  description: string;
+  status: "pending" | "in_progress" | "completed" | "failed";
+  priority: "low" | "medium" | "high" | "urgent";
+  due_date: string;
+  created_at: string;
+  updated_at: string;
+}
 
-export type ChatMessage = UIMessage<
-  MessageMetadata,
-  CustomUIDataTypes,
-  ChatTools
->;
+export interface ChatMessagePart {
+  type: "text";
+  text: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  role: "user" | "assistant" | "system";
+  parts: ChatMessagePart[];
+  attachments?: Attachment[];
+}
 
 export interface Attachment {
-  name: string;
-  url: string;
-  contentType: string;
+  id: string;
+  type: "image" | "code" | "text" | "sheet";
+  content: string;
 }

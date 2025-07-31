@@ -1,0 +1,15 @@
+{
+  "preferences": {},
+  "conversation_history": [
+    {
+      "timestamp": "2025-07-31T17:28:38.637971",
+      "message": "delete eating",
+      "response": "\u2713 Deleted task 'eating'\n\n\u274c cannot access local variable 'result' where it is not associated with a value",
+      "task_actions": [
+        "Deleted task 'eating'"
+      ]
+    }
+  ],
+  "task_patterns": {},
+  "last_interaction": null
+}

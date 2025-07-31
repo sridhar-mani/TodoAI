@@ -1,4 +1,3 @@
-from langchain_core.tools import tool
 from fastapi import Depends
 from sqlalchemy.orm import Session
 from databases.connection import get_db
@@ -6,9 +5,7 @@ from services.task_service import TaskService
 from schema.task_schema import TaskResponce, TaskDelete, TaskCreate, TaskFilter, TaskList, TaskStatus, TaskUpdate
 from datetime import datetime
 
-@tool('create_Task')
 def create_task(title:str, description:str = '', due_date:datetime =None, priority: str = None):
-    """Create a new task with the given details."""
     db = next(get_db())
     task_service = TaskService(db=db)
     task = task_service.create_task(
@@ -16,58 +13,96 @@ def create_task(title:str, description:str = '', due_date:datetime =None, priori
             title=title,
             description=description,
             due_date=due_date,
-            priority=priority if priority else TaskStatus.PENDING
+            priority=priority if priority else "medium"
         )
     )
     return task.__dict__
 
-@tool('update_task')
-def update_task(task_id:int, title:str = None, description:str = None, due_date: datetime = None, priority: str = None, status: str = None):
-    """Update an existing task by ID or title."""
+def update_task(task_id:int = None, title:str = None, description:str = None, due_date: datetime = None, priority: str = None, status: str = None):
+
     db = next(get_db())
     task_service = TaskService(db=db)
-    if task_id is None and title:
-        found = task_service.get_task_by_title(title=title)
+    
+    search_title = title
+    
+    if task_id is None and search_title:
+        found = task_service.get_task_by_title(title=search_title)
         task_id = found.id if found else None
+        title = None 
+    
     if task_id is None:
         return {"error": "Task ID or title must be provided"}
-    task = task_service.update_task(task_id=task_id, task_data= TaskUpdate(
-        title=title, description=description, due_date=due_date, priority=priority, status=status
-    ))
-    return task.__dict__ if task else {"error": "Task not found"}
-
-@tool('delete_task')
-def delete_task(task_id:int):
-    """Delete a task by its ID."""
-    db = next(get_db())
-    task_service = TaskService(db=db)
-    deleted_task = task_service.delete_task(task_id=task_id)
-    if not deleted_task:
-        return {"error": "Task not found"}
-    return TaskDelete(msg="Task deleted successfully", deleted_task=deleted_task.id)
-
-@tool('list_task')
-def list_task(task_id: int = None, skip: int = 0, limit: int = 10):
-    """List tasks or get a specific task by ID."""
-    db = next(get_db())
-    task_service = TaskService(db=db)
-    if task_id is not None:
-        task = task_service.get_task_by_id(task_id=task_id)
-        return TaskResponce(**task.__dict__) if task else {"error": "Task not found"}
     
-    tasks, total = task_service.list_tasks(skip=skip, limit=limit)
-    return TaskList(tasks=[TaskResponce(**t.__dict__) for t in tasks], total=total, skip=skip, limit=limit)
+    update_data = {}
+    if title is not None:
+        update_data['title'] = title
+    if description is not None:
+        update_data['description'] = description
+    if due_date is not None:
+        update_data['due_date'] = due_date
+    if priority is not None:
+        update_data['priority'] = priority
+    if status is not None:
+        update_data['status'] = status
+    
+    task_update = TaskUpdate(**update_data)
+    updated_task = task_service.update_task(task_id=task_id, task_data=task_update)
+    return updated_task.__dict__ if updated_task else {"error": "Task not found"}
 
-@tool('filter_tasks')
-def filter_tasks(status: str = None, priority: str = None, due_before: datetime = None, due_after: datetime = None):
-    """Filter tasks by status, priority, and due date criteria."""
+def delete_task(task_id:int):
     db = next(get_db())
     task_service = TaskService(db=db)
-    filters = TaskFilter(
+    result = task_service.delete_task(task_id=task_id)
+    if result:
+        return {"success": True, "message": f"Task {task_id} deleted"}
+    else:
+        return {"error": "Task not found"}
+
+def list_task(skip: int = 0, limit: int = 10):
+    db = next(get_db())
+    task_service = TaskService(db=db)
+    tasks = task_service.list_tasks(skip=skip, limit=limit)
+    return {
+    "tasks": [
+        {
+            "id": task.id,
+            "title": task.title,
+            "description": task.description,
+            "status": task.status.value if hasattr(task.status, "value") else task.status,
+            "priority": task.priority.value if hasattr(task.priority, "value") else task.priority,
+            "due_date": task.due_date.strftime("%Y-%m-%d") if task.due_date else None,
+            "created_at": task.created_at.strftime("%Y-%m-%d") if task.created_at else None,
+            "updated_at": task.updated_at.isoformat(),
+        }
+        for task in tasks
+    ],
+    "total": len(tasks)
+}
+
+
+def filter_tasks(status: str = None, priority: str = None, due_date: datetime = None):
+   
+    db = next(get_db())
+    task_service = TaskService(db=db)
+    task_filter = TaskFilter(
         status=status,
         priority=priority,
-        due_before=due_before,
-        due_after=due_after
+        due_date=due_date
     )
-    tasks = task_service.filter_tasks(filters=filters)
-    return [TaskResponce(**task.__dict__) for task in tasks]
+    tasks = task_service.filter_tasks(task_filter=task_filter)
+    return {
+    "tasks": [
+        {
+            "id": task.id,
+            "title": task.title,
+            "description": task.description,
+            "status": task.status.value if hasattr(task.status, "value") else task.status,
+            "priority": task.priority.value if hasattr(task.priority, "value") else task.priority,
+            "due_date": task.due_date.strftime("%Y-%m-%d") if task.due_date else None,
+            "created_at": task.created_at.strftime("%Y-%m-%d") if task.created_at else None
+            ,"updated_at": task.updated_at.isoformat(),
+        }
+        for task in tasks
+    ],
+    "total": len(tasks)
+}

@@ -18,7 +18,10 @@ def get_db():
         db.close()
 
 def create_all():
-    Base.metadata.create_all(bind=engine)
+    try:
+        Base.metadata.create_all(bind=engine)
+    except Exception as e:
+        raise e
 
 def drop_all():
     Base.metadata.drop_all(bind=engine)

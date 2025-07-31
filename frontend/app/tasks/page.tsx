@@ -1,12 +1,13 @@
 import { cookies } from "next/headers";
 import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
-import TaskListPageClient from "./TaskListPageClient";
+import { generateUUID } from "@/lib/utils";
+import TaskListPage from "./TaskListPage";
 
-export default async function Page() {
-  const id = "main-chat";
+export default async function TasksPage() {
+  const id = generateUUID();
   const cookieStore = await cookies();
   const modelIdFromCookie = cookieStore.get("chat-model");
   const chatModel = modelIdFromCookie?.value || DEFAULT_CHAT_MODEL;
 
-  return <TaskListPageClient id={id} chatModel={chatModel} />;
+  return <TaskListPage id={id} chatModel={chatModel} />;
 }

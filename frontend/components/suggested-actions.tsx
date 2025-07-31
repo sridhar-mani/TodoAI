@@ -1,15 +1,15 @@
-'use client';
+"use client";
 
-import { motion } from 'framer-motion';
-import { Button } from './ui/button';
-import { memo } from 'react';
-import type { UseChatHelpers } from '@ai-sdk/react';
-import type { VisibilityType } from './visibility-selector';
-import type { ChatMessage } from '@/lib/types';
+import { motion } from "framer-motion";
+import { Button } from "./ui/button";
+import { memo } from "react";
+import type { UseChatHelpers } from "@ai-sdk/react";
+import type { VisibilityType } from "./visibility-selector";
+import type { ChatMessage } from "@/lib/types";
 
 interface SuggestedActionsProps {
   chatId: string;
-  sendMessage: UseChatHelpers<ChatMessage>['sendMessage'];
+  sendMessage: UseChatHelpers<ChatMessage>["sendMessage"];
   selectedVisibilityType: VisibilityType;
 }
 
@@ -20,24 +20,34 @@ function PureSuggestedActions({
 }: SuggestedActionsProps) {
   const suggestedActions = [
     {
-      title: 'What are the advantages',
-      label: 'of using Next.js?',
-      action: 'What are the advantages of using Next.js?',
+      title: "Add a new task",
+      label: "for today",
+      action: "Add a new task for today",
     },
     {
-      title: 'Write code to',
-      label: `demonstrate djikstra's algorithm`,
-      action: `Write code to demonstrate djikstra's algorithm`,
+      title: "Show my overdue tasks",
+      label: "and deadlines",
+      action: "Show my overdue tasks and deadlines",
     },
     {
-      title: 'Help me write an essay',
-      label: `about silicon valley`,
-      action: `Help me write an essay about silicon valley`,
+      title: "Suggest ways to prioritize",
+      label: "my current tasks",
+      action: "Suggest ways to prioritize my current tasks",
     },
     {
-      title: 'What is the weather',
-      label: 'in San Francisco?',
-      action: 'What is the weather in San Francisco?',
+      title: "Summarize my completed tasks",
+      label: "for this week",
+      action: "Summarize my completed tasks for this week",
+    },
+    {
+      title: "How can I be more productive?",
+      label: "Give me tips",
+      action: "How can I be more productive? Give me tips.",
+    },
+    {
+      title: "Remind me to",
+      label: "review my goals tonight",
+      action: "Remind me to review my goals tonight",
     },
   ];
 
@@ -53,16 +63,16 @@ function PureSuggestedActions({
           exit={{ opacity: 0, y: 20 }}
           transition={{ delay: 0.05 * index }}
           key={`suggested-action-${suggestedAction.title}-${index}`}
-          className={index > 1 ? 'hidden sm:block' : 'block'}
+          className={index > 1 ? "hidden sm:block" : "block"}
         >
           <Button
             variant="ghost"
             onClick={async () => {
-              window.history.replaceState({}, '', `/chat/${chatId}`);
+              window.history.replaceState({}, "", `/`);
 
               sendMessage({
-                role: 'user',
-                parts: [{ type: 'text', text: suggestedAction.action }],
+                role: "user",
+                parts: [{ type: "text", text: suggestedAction.action }],
               });
             }}
             className="text-left border rounded-xl px-4 py-3.5 text-sm flex-1 gap-1 sm:flex-col w-full h-auto justify-start items-start"
@@ -86,5 +96,5 @@ export const SuggestedActions = memo(
       return false;
 
     return true;
-  },
+  }
 );

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, validator
-from typing import Optional, List, Any
+from typing import Optional, List, Any, Literal
 from datetime import datetime
 from models.task_model import TaskStatus, TaskPriority, Task
 
@@ -18,6 +18,19 @@ class TaskResponce(TaskBase):
 
     class Config:
         from_attributes = True
+
+class MessagePart(BaseModel):
+    type: str
+    text: str
+
+
+class ChatMessageIn(BaseModel):
+    chatId: str
+    id: str
+    role: Literal["user", "assistant"]
+    parts: List[MessagePart]
+    timestamp: datetime
+
 
 class TaskDelete(BaseModel):
     msg: str

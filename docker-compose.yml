@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - DATABASE_URL=${DATABASE_URL}
+    volumes:
+      - ./backend:/app
+      - memory_data:/app/memory
+    networks:
+      - todoai-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_SOCKET_URL=http://localhost:8000
+      - BACKEND_URL=http://localhost:8000/api
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - NEXTAUTH_URL=http://localhost:3000
+    depends_on:
+      - backend
+    networks:
+      - todoai-network
+
+  database:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=todoai
+      - POSTGRES_USER=todoai_user
+      - POSTGRES_PASSWORD=todoai_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - todoai-network
+
+volumes:
+  postgres_data:
+  memory_data:
+
+networks:
+  todoai-network:
+    driver: bridge 

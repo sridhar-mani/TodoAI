@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String , DateTime, Enum , Text
+from sqlalchemy import Column, Integer, String , DateTime, Enum , Text, JSON
 from sqlalchemy.sql import func
 from databases.connection import Base
 from datetime import datetime
@@ -29,3 +29,12 @@ class Task(Base):
 
     def __repr__(self):
         return f"<Task(id={self.id}, title={self.title}, status={self.status}, priority={self.priority})>"
+
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
+
+    id = Column(String, primary_key=True, index=True)
+    chat_id = Column(String, index=True, nullable=False)
+    role = Column(String, nullable=False)           
+    parts = Column(JSON, nullable=False)            
+    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
