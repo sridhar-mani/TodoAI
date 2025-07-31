@@ -37,26 +37,23 @@ class ChatProcessor:
         self.structured_primary_llm = None
         self.structured_fallback_llm = None
         self._configure_llms()
-        print("Chat processor initialized with LLM-driven structured output")
     
     def _configure_llms(self):
         """Configure both LLMs with proper structured output"""
-        # Configure Gemini as primary
+    
         if settings.google_api_key and not settings.debug:
             try:
                 self.primary_llm = ChatGoogleGenerativeAI(
                     model="gemini-1.5-pro",
                     google_api_key=settings.google_api_key,
-                    temperature=0,  # Higher temperature for better text understanding
+                    temperature=0, 
                     convert_system_message_to_human=True,
                 )
-                # Force structured output
                 self.structured_primary_llm = self.primary_llm.with_structured_output(ChatProcessingResult)
-                print("✓ Gemini configured with structured output (temp: 0.3)")
+     
             except Exception as e:
-                print(f"✗ Error configuring Gemini: {e}")
+                raise e
         
-        # Configure DeepSeek as fallback (WITHOUT response_format - it doesn't support it)
         if OPENAI_AVAILABLE:
             try:
                 self.fallback_llm = ChatOpenAI(
@@ -65,14 +62,12 @@ class ChatProcessor:
                     model=settings.deepseek_model_name,
                     temperature=0
                 )
-                # DON'T bind response_format - DeepSeek doesn't support it
-                # Instead, we'll use pure prompt engineering
                 self.structured_fallback_llm = self.fallback_llm
-                print("✓ DeepSeek configured with prompt-based JSON (temp: 0.3)")
+             
             except Exception as e:
-                print(f"✗ Error configuring DeepSeek: {e}")
+                raise e
         else:
-            print("✗ DeepSeek not available")
+            raise e
     
     def _get_system_prompt(self) -> str:
         """Comprehensive system prompt for LLM-driven task management"""
@@ -181,16 +176,14 @@ CRITICAL RULES:
 
     def _extract_json_from_text(self, text: str) -> Optional[str]:
         """Extract JSON from text response"""
-        # Remove any markdown code blocks
+   
         text = re.sub(r'```(?:json)?\s*', '', text)
         text = re.sub(r'\s*```', '', text)
         
-        # Try to find JSON between curly braces
         json_match = re.search(r'({[\s\S]*})', text.strip())
         if json_match:
             return json_match.group(1).strip()
         
-        # If the entire text looks like JSON, return it
         text = text.strip()
         if text.startswith('{') and text.endswith('}'):
             return text
@@ -214,7 +207,6 @@ CRITICAL RULES:
             
             response = self.structured_primary_llm.invoke(messages)
             
-            # Convert Pydantic model to dict then back to ensure validation
             if hasattr(response, 'model_dump'):
                 result_dict = response.model_dump()
             elif hasattr(response, 'dict'):
@@ -222,14 +214,13 @@ CRITICAL RULES:
             else:
                 result_dict = response.__dict__
             
-            # Validate the response
             validated_result = ChatProcessingResult(**result_dict)
-            print(f"✓ Gemini structured result: {validated_result.intent} with {len(validated_result.operations)} operations")
+    
             
             return validated_result
             
         except Exception as e:
-            print(f"✗ Gemini structured processing error: {e}")
+
             return None
 
     def _process_with_json_deepseek(self, message: str, context: str = "") -> Optional[ChatProcessingResult]:
@@ -250,28 +241,19 @@ CRITICAL RULES:
             response = self.structured_fallback_llm.invoke(messages)
             response_text = response.content.strip()
             
-            print(f"DeepSeek raw response: {response_text[:200]}...")
-            
-            # Extract and parse JSON
             json_text = self._extract_json_from_text(response_text)
             if not json_text:
-                print("✗ Could not extract JSON from DeepSeek response")
                 return None
                 
             parsed_dict = json.loads(json_text)
             
-            # Validate with Pydantic
             validated_result = ChatProcessingResult(**parsed_dict)
-            print(f"✓ DeepSeek JSON result: {validated_result.intent} with {len(validated_result.operations)} operations")
-            
+
             return validated_result
             
         except json.JSONDecodeError as e:
-            print(f"✗ DeepSeek JSON parsing error: {e}")
-            print(f"Attempted to parse: {json_text[:200] if 'json_text' in locals() else 'N/A'}...")
             return None
         except Exception as e:
-            print(f"✗ DeepSeek processing error: {e}")
             return None
 
     def _extract_task_title_from_message(self, message: str) -> str:
@@ -279,7 +261,6 @@ CRITICAL RULES:
         message = message.strip()
         message_lower = message.lower()
         
-        # Pattern 1: "create a task to [ACTION]"
         patterns = [
             r'create\s+(?:a\s+)?task\s+to\s+(.+?)(?:\s+(?:today|tomorrow|this week|next week))?$',
             r'create\s+(?:a\s+)?task\s+for\s+(.+?)(?:\s+(?:today|tomorrow|this week|next week))?$',
@@ -295,12 +276,9 @@ CRITICAL RULES:
             match = re.search(pattern, message_lower)
             if match:
                 title = match.group(1).strip()
-                # Remove common unnecessary words
                 title = re.sub(r'^(a|an|the)\s+', '', title)
                 return title
         
-        # If no pattern matches, try to clean up the whole message
-        # Remove common prefixes
         cleaned = message_lower
         prefixes_to_remove = [
             'create a task to ', 'create task to ', 'create a task for ', 'create task for ',
@@ -319,9 +297,8 @@ CRITICAL RULES:
         """Create fallback result using improved rule-based logic"""
         message_lower = message.lower()
         
-        # Simple intent detection
         if any(word in message_lower for word in ['create', 'add', 'new']):
-            # Extract title using improved method
+           
             title = self._extract_task_title_from_message(message)
             
             return ChatProcessingResult(
@@ -334,7 +311,7 @@ CRITICAL RULES:
             )
             
         elif any(word in message_lower for word in ['mark', 'complete', 'done', 'finish']):
-            # Try to extract task ID
+        
             numbers = re.findall(r'\d+', message)
             if numbers:
                 task_id = int(numbers[0])
@@ -347,7 +324,6 @@ CRITICAL RULES:
                     requires_task_data=False
                 )
             else:
-                # Try to find task by title
                 title_search = message_lower.replace("mark", "").replace("complete", "").replace("done", "").replace("finish", "").replace("as", "").replace("task", "").strip()
                 return ChatProcessingResult(
                     intent="task_management",
@@ -413,7 +389,6 @@ CRITICAL RULES:
                 due_text = f" (due: {entry['due_date']})" if entry.get("due_date") else ""
                 lines.append(f"- #{entry['id']}: {entry['title']} [{status}] [{priority}]{due_text}")
             else:
-                # your existing ORM‐based logic
                 status = entry.status.value
                 priority = entry.priority.value
                 due_text = f" (due: {entry.due_date:%Y-%m-%d})" if entry.due_date else ""
@@ -432,7 +407,6 @@ CRITICAL RULES:
                 params = op.parameters
                 
                 if operation == "create":
-                    # Convert due_date string to datetime if present
                     due_date = None
                     if params.get('due_date'):
                         try:
@@ -449,7 +423,6 @@ CRITICAL RULES:
                     results.append({"operation": operation, "success": True, "result": result, "message": f"Created task: {params.get('title')}"})
                     
                 elif operation == "update":
-                    # 1) parse due_date if present
                     due_date = None
                     if params.get("due_date"):
                         try:
@@ -457,7 +430,6 @@ CRITICAL RULES:
                         except:
                             pass
 
-                    # 2) normalize DeepSeek typos into "title"
                     search_title = (
                         params.get("title")
                         or params.get("titl")
@@ -467,15 +439,13 @@ CRITICAL RULES:
                     if search_title:
                         params["title"] = search_title
 
-                    # 3) find the task, either by ID or by title (+ optional due_date)
                     task_to_update = None
                     if params.get("task_id") is not None:
-                        # we'll trust the ID
+                      
                         task_to_update = {"id": params["task_id"]}
                     else:
                         all_tasks = list_task(skip=0, limit=100).get("tasks", [])
                         for t in all_tasks:
-                            # unify dict vs ORM object
                             t_id    = t["id"]    if isinstance(t, dict) else t.id
                             t_title = (t["title"] if isinstance(t, dict) else t.title).lower()
                             t_due   = (
@@ -486,12 +456,11 @@ CRITICAL RULES:
                             matches_title = params.get("title") and (t_title == params["title"].lower())
                             matches_date  = params.get("due_date") and (t_due == params["due_date"])
                             
-                            # if user specified both title and due_date, require both; otherwise just title
+                       
                             if matches_title and (not params.get("due_date") or matches_date):
                                 task_to_update = t
                                 break
 
-                    # 4) if we still don’t have it, error out
                     if not task_to_update:
                         results.append({
                             "operation": operation,
@@ -500,18 +469,16 @@ CRITICAL RULES:
                         })
                         continue
 
-                    # 5) call your existing update_task with the real ID
                     real_id = task_to_update["id"] if isinstance(task_to_update, dict) else task_to_update.id
                     result = update_task(
                         task_id=real_id,
-                        title=params.get("new_title") or None,   # if you support renaming
+                        title=params.get("new_title") or None,  
                         description=params.get("description"),
                         due_date=due_date,
                         priority=params.get("priority"),
                         status=params.get("status"),
                     )
 
-                    # 6) build the response
                     if isinstance(result, dict) and result.get("error"):
                         results.append({"operation": operation, "success": False, "error": result["error"]})
                     else:
@@ -527,7 +494,7 @@ CRITICAL RULES:
                         result = delete_task(task_id=params['task_id'])
                         identifier = f"#{params['task_id']}"
                     elif params.get('title'):
-                        # Find task by title
+                     
                         all_tasks = list_task(skip=0, limit=100)
                         tasks = all_tasks.get('tasks', [])
                         
@@ -576,7 +543,6 @@ CRITICAL RULES:
                     else:
                         formatted_result = f"📋 You have {len(tasks)} task{'s' if len(tasks) != 1 else ''}:\n\n"
                         for i, task in enumerate(tasks, 1):
-                            # Handle both dict and ORM object formats
                             if isinstance(task, dict):
                                 status = task["status"]
                                 priority = task["priority"] 
@@ -594,7 +560,7 @@ CRITICAL RULES:
                     results.append({"operation": operation, "success": True, "result": tasks, "formatted": formatted_result})
                     
                 elif operation == "filter":
-                    # Convert due_date string to datetime if present
+                
                     due_date = None
                     if params.get('due_date'):
                         try:
@@ -610,7 +576,6 @@ CRITICAL RULES:
                     
                     tasks = result.get('tasks', [])
                     
-                    # Build filter description
                     filter_desc = []
                     if params.get('status'):
                         filter_desc.append(f"status: {params['status']}")
@@ -636,7 +601,6 @@ CRITICAL RULES:
                     results.append({"operation": operation, "success": True, "result": tasks, "formatted": formatted_result, "filter": filter_text})
                     
             except Exception as e:
-                print(f"Error executing operation {operation}: {e}")
                 results.append({"operation": operation, "success": False, "error": str(e)})
         
         return results
@@ -645,13 +609,10 @@ CRITICAL RULES:
         """Format the final response using the template and results"""
         template = processing_result.response_template
         
-        # If no operations, return template as-is
         if not operation_results:
             return template
         
-        # For templates with {result} placeholder
         if "{result}" in template:
-            # Combine all formatted results
             formatted_results = []
             for result in operation_results:
                 if result.get("success"):
@@ -665,7 +626,6 @@ CRITICAL RULES:
             combined_result = "\n\n".join(formatted_results) if formatted_results else "Operation completed"
             return template.replace("{result}", combined_result)
         
-        # For templates without placeholder, append results if they have messages
         additional_info = []
         for result in operation_results:
             if result.get("success") and "formatted" in result:
@@ -680,18 +640,12 @@ CRITICAL RULES:
 
     def process_chat(self, message: str, user_id: str) -> Tuple[str, List[str]]:
         """Main chat processing function using LLM-driven structured approach"""
-        print(f"=== LLM-DRIVEN PROCESSING ===")
-        print(f"Message: '{message}'")
-        print(f"User ID: {user_id}")
-        
+    
         try:
-            # Step 1: Get task context if might be needed
             context = ""
             if any(word in message.lower() for word in ['update', 'delete', 'mark', 'remove', 'modify']):
                 context = self._get_current_task_context()
-                print(f"Added task context: {len(context)} chars")
-            
-            # Step 2: Process with LLM (try Gemini first, then DeepSeek)
+           
             processing_result = None
             llm_used = "none"
 
@@ -705,12 +659,6 @@ CRITICAL RULES:
                 if processing_result:
                     llm_used = "deepseek_json"
             
-            if not processing_result:
-                print("Both LLMs failed, using improved rule-based fallback")
-                processing_result = self._create_fallback_result(message)
-                llm_used = "rule_based"
-            
-            print(f"Processing result: {processing_result.intent} | {len(processing_result.operations)} operations | LLM: {llm_used}")
             
             operation_results = []
             task_actions = []
@@ -718,27 +666,18 @@ CRITICAL RULES:
             if processing_result.operations:
                 operation_results = self._execute_operations(processing_result.operations)
                 
-                # Extract task actions for tracking
                 for result in operation_results:
                     if result.get("success") and result.get("message"):
                         task_actions.append(result["message"])
             
-            # Step 4: Format final response
             final_response = self._format_final_response(processing_result, operation_results)
-            
-            print(f"Final response: '{final_response[:100]}{'...' if len(final_response) > 100 else ''}'")
-            print(f"Task actions: {task_actions}")
-            print(f"LLM used: {llm_used}")
-            
-            # Step 5: Update memory
+     
             memory_manager.add_user_conversation(user_id, message, final_response, task_actions)
             
-            print(f"=== END LLM-DRIVEN PROCESSING ===")
             return final_response, task_actions
             
         except Exception as e:
-            print(f"Error in LLM-driven chat processing: {e}")
             import traceback
             traceback.print_exc()
             
-            return "❌ I'm having trouble processing that request. Please try rephrasing.", []
+            return " I'm having trouble processing that request. Please try rephrasing.", []
