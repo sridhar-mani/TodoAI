@@ -1,0 +1,63 @@
+{
+  "preferences": {},
+  "conversation_history": [
+    {
+      "timestamp": "2025-08-03T01:30:56.344075",
+      "message": "Show me all my tasks",
+      "response": "\ud83d\udccb You have 2 tasks:\n\n1. #1: buy groceries\n   \u23f3[PENDING] \ud83d\udfe1[MEDIUM]\n\n2. #2: watching dod\n   \u23f3[PENDING] \ud83d\udfe1[MEDIUM]\n\n",
+      "task_actions": []
+    },
+    {
+      "timestamp": "2025-08-03T01:32:00.858315",
+      "message": "delete buy groceries",
+      "response": "Deleted task 'buy groceries'\n\n cannot access local variable 'result' where it is not associated with a value",
+      "task_actions": [
+        "Deleted task 'buy groceries'"
+      ]
+    },
+    {
+      "timestamp": "2025-08-03T01:40:36.857376",
+      "message": "created a task for eating",
+      "response": "\ud83d\udc4b Hello! I'm here to help you manage your tasks. What would you like to do?",
+      "task_actions": []
+    },
+    {
+      "timestamp": "2025-08-03T02:07:57.821836",
+      "message": "create a task for making beer",
+      "response": "Created task: making beer",
+      "task_actions": [
+        "Created task: making beer"
+      ]
+    },
+    {
+      "timestamp": "2025-08-03T02:10:07.677119",
+      "message": "filter done tasks",
+      "response": " TaskService.filter_tasks() got an unexpected keyword argument 'task_filter'",
+      "task_actions": []
+    },
+    {
+      "timestamp": "2025-08-03T02:16:40.712610",
+      "message": "filter done tasks",
+      "response": "Found 1 task with status: completed:\n\n1. #3: making beer\n   Status: COMPLETED | Priority: MEDIUM\n\n",
+      "task_actions": []
+    },
+    {
+      "timestamp": "2025-08-03T02:24:55.313069",
+      "message": "create task to ryun",
+      "response": "Created task: run",
+      "task_actions": [
+        "Created task: run"
+      ]
+    },
+    {
+      "timestamp": "2025-08-03T02:26:01.942373",
+      "message": "create a task to run",
+      "response": "Created task: run",
+      "task_actions": [
+        "Created task: run"
+      ]
+    }
+  ],
+  "task_patterns": {},
+  "last_interaction": null
+}

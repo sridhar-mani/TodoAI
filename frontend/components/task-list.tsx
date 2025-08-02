@@ -13,6 +13,74 @@ interface TaskListResponse {
   limit: number;
 }
 
+const StatusSelector = ({
+  status,
+  taskId,
+  onStatusChange,
+  disabled = false,
+}: {
+  status: string;
+  taskId: number;
+  onStatusChange: (taskId: number, newStatus: string) => void;
+  disabled?: boolean;
+}) => {
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "completed":
+        return "bg-gray-400 dark:bg-gray-500";
+      case "in_progress":
+        return "bg-blue-500";
+      case "failed":
+        return "bg-red-500";
+      default:
+        return "border-2 border-gray-300 dark:border-gray-600 bg-transparent";
+    }
+  };
+
+  return (
+    <div className="relative group">
+      <div
+        className={`w-5 h-5 rounded-full cursor-pointer hover:scale-110 transition-transform flex items-center justify-center ${getStatusColor(
+          status
+        )} ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+      >
+        {status === "completed" && (
+          <svg
+            className="w-3 h-3 text-white"
+            fill="currentColor"
+            viewBox="0 0 20 20"
+          >
+            <path
+              fillRule="evenodd"
+              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+              clipRule="evenodd"
+            />
+          </svg>
+        )}
+        {status === "in_progress" && <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>}
+        {status === "failed" && (
+          <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+          </svg>
+        )}
+      </div>
+      
+      {!disabled && (
+        <select
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+          value={status}
+          onChange={(e) => onStatusChange(taskId, e.target.value)}
+        >
+          <option value="pending">Pending</option>
+          <option value="in_progress">In Progress</option>
+          <option value="completed">Completed</option>
+          <option value="failed">Failed</option>
+        </select>
+      )}
+    </div>
+  );
+};
+
 const StatusIcon = ({
   status,
   onClick,
@@ -297,11 +365,27 @@ export function TaskList() {
       return response;
     } catch (error) {
       console.error("API call failed:", error);
-      alert(`Operation failed: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      alert(`Operation failed: ${errorMessage}`);
       throw error;
     } finally {
       setIsUpdating(null);
     }
+  };
+
+  const handleStatusChange = async (taskId: number, newStatus: string) => {
+    await handleApiCall(
+      () => fetch(`/api/tasks`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          task_id: taskId,
+          status: newStatus,
+        }),
+      }),
+      `Task ${taskId} status updated to ${newStatus}`,
+      taskId
+    );
   };
 
   const handleStatusToggle = async (task: Task) => {
@@ -456,7 +540,7 @@ export function TaskList() {
     );
   }
 
-  const filteredTasks = data.tasks.filter((task) => {
+  const filteredTasks = data?.tasks?.filter((task) => {
     const matchesSearch =
       searchTerm === "" ||
       task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -470,7 +554,7 @@ export function TaskList() {
           new Date(filterDate).toDateString());
 
     return matchesSearch && matchesDate;
-  });
+  }) || [];
 
   const completedTasks = filteredTasks.filter((task) => task.status === "completed").length;
   const pendingTasks = filteredTasks.filter((task) => task.status === "pending").length;
@@ -486,7 +570,7 @@ export function TaskList() {
               Tasks
             </h1>
             <p className="text-gray-500 dark:text-gray-400 text-xs">
-              {data.total} items
+              {data?.total || 0} items
             </p>
           </div>
           <div className="flex items-center space-x-3">
@@ -665,9 +749,11 @@ export function TaskList() {
                   isUpdating === task.id ? "opacity-50 pointer-events-none" : ""
                 }`}
               >
-                <StatusIcon
+                <StatusSelector
                   status={task.status}
-                  onClick={() => handleStatusToggle(task)}
+                  taskId={task.id}
+                  onStatusChange={handleStatusChange}
+                  disabled={isUpdating === task.id}
                 />
 
                 <div className="flex-1 min-w-0">
@@ -692,11 +778,22 @@ export function TaskList() {
 
                   <div className="flex items-center justify-between mt-2">
                     <div className="flex items-center space-x-4">
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
-                        #{task.id}
-                      </span>
                       <span className="text-xs text-gray-500 dark:text-gray-400 capitalize">
                         {task.priority}
+                      </span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        {task.updated_at && new Date(task.updated_at).toISOString() !== new Date(task.created_at).toISOString() 
+                          ? `Updated ${new Date(task.updated_at).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                              year: new Date(task.updated_at).getFullYear() !== new Date().getFullYear() ? "numeric" : undefined,
+                            })}`
+                          : `Created ${new Date(task.created_at).toLocaleDateString("en-US", {
+                              month: "short", 
+                              day: "numeric",
+                              year: new Date(task.created_at).getFullYear() !== new Date().getFullYear() ? "numeric" : undefined,
+                            })}`
+                        }
                       </span>
                     </div>
 

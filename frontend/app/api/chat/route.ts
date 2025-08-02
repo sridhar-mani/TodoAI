@@ -51,14 +51,34 @@ export async function POST(request: NextRequest) {
       if (response.ok) {
         const data = await response.json();
 
+        const responseText = data.message || data.response || "Task completed.";
+        const assistantMessageId = data.id || `msg_${Date.now()}`;
+
+        // Store the assistant response in the database
+        try {
+          await fetch(`${BACKEND_URL}/api/chat/message`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              chatId: id,
+              id: assistantMessageId,
+              role: "assistant",
+              parts: [{ type: "text", text: responseText }],
+              timestamp: new Date().toISOString(),
+            }),
+          });
+        } catch (error) {
+          console.error("Failed to store assistant message:", error);
+          // Continue with the response even if storage fails
+        }
+
         const encoder = new TextEncoder();
         const stream = new ReadableStream({
           start(controller) {
-            const responseText =
-              data.message || data.response || "Task completed.";
-
             const chunk = {
-              id: data.id || `msg_${Date.now()}`,
+              id: assistantMessageId,
               role: "assistant",
               content: responseText,
             };
