@@ -1,0 +1,95 @@
+{
+  "preferences": {},
+  "conversation_history": [
+    {
+      "timestamp": "2025-08-02T10:46:56.790745",
+      "message": "Show me all my tasks",
+      "response": "\u2713 Showing all tasks\n\n\ud83d\udccb No tasks found",
+      "task_actions": []
+    },
+    {
+      "timestamp": "2025-08-02T10:49:18.737506",
+      "message": "show me all my tasks",
+      "response": "\u2713 Showing all tasks\n\n\ud83d\udccb No tasks found",
+      "task_actions": []
+    },
+    {
+      "timestamp": "2025-08-02T23:51:18.665462",
+      "message": "Show me all my tasks",
+      "response": "\u2713 Showing all tasks\n\n\ud83d\udccb No tasks found",
+      "task_actions": []
+    },
+    {
+      "timestamp": "2025-08-03T00:13:02.211492",
+      "message": "Create a task to buy groceries",
+      "response": "\u2713 Created task 'buy groceries'",
+      "task_actions": [
+        "Created task: buy groceries"
+      ]
+    },
+    {
+      "timestamp": "2025-08-03T00:19:07.591953",
+      "message": "Show me all my tasks",
+      "response": "\u2713 Showing all tasks\n\n\ud83d\udccb You have 1 task:\n\n",
+      "task_actions": []
+    },
+    {
+      "timestamp": "2025-08-03T00:24:22.307256",
+      "message": "delete buy groceries",
+      "response": "\u2713 Deleted task 'buy groceries'\n\n\u274c cannot access local variable 'result' where it is not associated with a value",
+      "task_actions": [
+        "Deleted task 'buy groceries'"
+      ]
+    },
+    {
+      "timestamp": "2025-08-03T00:25:07.671661",
+      "message": "delete buuy groceries",
+      "response": "\u2713 Deleted task 'buy groceries'\n\n\u274c Task 'buy groceries' not found",
+      "task_actions": []
+    },
+    {
+      "timestamp": "2025-08-03T00:28:24.702054",
+      "message": "delete buy groceries",
+      "response": "\u2713 Deleted task 'buy groceries'\n\n\u274c Task 'buy groceries' not found",
+      "task_actions": []
+    },
+    {
+      "timestamp": "2025-08-03T00:40:33.341472",
+      "message": "delete buy groceries",
+      "response": "\u2713 Deleted task 'buy groceries'",
+      "task_actions": []
+    },
+    {
+      "timestamp": "2025-08-03T00:42:08.829583",
+      "message": "delete buy groceries",
+      "response": "\u2713 Deleted task 'buy groceries'",
+      "task_actions": []
+    },
+    {
+      "timestamp": "2025-08-03T00:46:32.586530",
+      "message": "delete buy groceries",
+      "response": "\u2713 Deleted task 'buy groceries'",
+      "task_actions": []
+    },
+    {
+      "timestamp": "2025-08-03T00:52:46.335855",
+      "message": "delete buy groceries",
+      "response": " Task 'buy groceries' not found",
+      "task_actions": []
+    },
+    {
+      "timestamp": "2025-08-03T00:58:48.455901",
+      "message": "delete buy groceries",
+      "response": " Task 'buy groceries' not found",
+      "task_actions": []
+    },
+    {
+      "timestamp": "2025-08-03T01:00:12.625939",
+      "message": "delete buy groceries",
+      "response": " Task 'buy groceries' not found",
+      "task_actions": []
+    }
+  ],
+  "task_patterns": {},
+  "last_interaction": null
+}

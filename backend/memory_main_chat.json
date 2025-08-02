@@ -16,6 +16,34 @@
       "task_actions": [
         "Created task: buy game"
       ]
+    },
+    {
+      "timestamp": "2025-08-02T10:02:35.264522",
+      "message": "delete buy game",
+      "response": "\u2713 Deleted task 'buy game'\n\n\u274c cannot access local variable 'result' where it is not associated with a value",
+      "task_actions": [
+        "Deleted task 'buy game'"
+      ]
+    },
+    {
+      "timestamp": "2025-08-02T10:12:15.692810",
+      "message": "list all tasks",
+      "response": "\u2713 Showing all tasks\n\n\ud83d\udccb No tasks found",
+      "task_actions": []
+    },
+    {
+      "timestamp": "2025-08-02T10:13:51.147133",
+      "message": "create a task for reading book",
+      "response": "\u2713 Created task 'reading book'",
+      "task_actions": [
+        "Created task: reading book"
+      ]
+    },
+    {
+      "timestamp": "2025-08-02T10:14:27.727524",
+      "message": "show me all tasks",
+      "response": "\u2713 Showing all tasks\n\n\ud83d\udccb You have 1 task:\n\n",
+      "task_actions": []
     }
   ],
   "task_patterns": {},

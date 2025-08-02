@@ -1,12 +1,7 @@
 from typing import List, Tuple, Dict, Any, Optional
 from datetime import datetime
 from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_google_genai import ChatGoogleGenerativeAI
-try:
-    from langchain_openai import ChatOpenAI
-    OPENAI_AVAILABLE = True
-except ImportError:
-    OPENAI_AVAILABLE = False
+from langchain_ollama import ChatOllama
 from ai.task_tools import create_task, update_task, delete_task, list_task, filter_tasks
 from ai.memory_system import memory_manager
 from config import settings
@@ -33,42 +28,23 @@ class ChatProcessor:
     
     def __init__(self):
         self.primary_llm = None
-        self.fallback_llm = None
         self.structured_primary_llm = None
-        self.structured_fallback_llm = None
         self._configure_llms()
     
     def _configure_llms(self):
-        """Configure both LLMs with proper structured output"""
-    
-        if settings.google_api_key and not settings.debug:
-            try:
-                self.primary_llm = ChatGoogleGenerativeAI(
-                    model="gemini-1.5-pro",
-                    google_api_key=settings.google_api_key,
-                    temperature=0, 
-                    convert_system_message_to_human=True,
-                )
-                self.structured_primary_llm = self.primary_llm.with_structured_output(ChatProcessingResult)
-     
-            except Exception as e:
-                raise e
+        """Configure Ollama LLM with structured output"""
         
-        if OPENAI_AVAILABLE:
-            try:
-                self.fallback_llm = ChatOpenAI(
-                    base_url=settings.lmstudio_base_url,
-                    api_key="lm-studio",
-                    model=settings.deepseek_model_name,
-                    temperature=0
-                )
-                self.structured_fallback_llm = self.fallback_llm
-             
-            except Exception as e:
-                raise e
-        else:
-            raise e
-    
+        # Use Ollama with Gemma model
+        try:
+            self.primary_llm = ChatOllama(
+                model=settings.ollama_model_name,
+                base_url=settings.ollama_base_url,
+                temperature=0,
+            )
+            self.structured_primary_llm = self.primary_llm.with_structured_output(ChatProcessingResult)
+        except Exception as e:
+            print(f"Failed to configure Ollama: {e}")
+            raise Exception("No LLM available - please ensure Ollama is running with gemma3n:e2b model")
     def _get_system_prompt(self) -> str:
         """Comprehensive system prompt for LLM-driven task management"""
         return """You are an intelligent task management assistant. Your job is to analyze user messages and create structured responses that include both intent analysis and specific operations to perform.
@@ -77,13 +53,20 @@ AVAILABLE TASK OPERATIONS:
 1. CREATE: Create new tasks
    - Parameters: title (required), description, priority (low/medium/high/urgent), due_date (YYYY-MM-DD)
 2. UPDATE: Update existing tasks
-   - Parameters: task_id OR title (for finding), status (pending/in_progress/completed/failed), new_title, priority, due_date, description
+   - Parameters: task_id OR title (for finding), status (pending/in_progress/completed/failed), new_title, priority (low/medium/high/urgent), due_date, description
 3. DELETE: Delete tasks
    - Parameters: task_id OR title (for finding)
 4. LIST: Show all tasks
    - Parameters: limit (optional, default 100)
 5. FILTER: Filter tasks by criteria
    - Parameters: status, priority, due_date
+
+PRIORITY MANAGEMENT EXAMPLES:
+- "Set task #3 priority to high" → UPDATE operation with priority="high"
+- "Change buy groceries to urgent priority" → UPDATE operation with title="buy groceries", priority="urgent"
+- "Make task low priority" → UPDATE operation with priority="low"
+- "Create high priority task to call doctor" → CREATE operation with title="call doctor", priority="high"
+- "Show me high priority tasks" → FILTER operation with priority="high"
 
 TASK TITLE EXTRACTION RULES:
 - "Create a task to [ACTION]" → title = "[ACTION]"
@@ -133,6 +116,27 @@ User: "Show completed tasks"
 operations: [{"operation": "filter", "parameters": {"status": "completed"}}]
 response_template: "{result}"
 
+PRIORITY MANAGEMENT EXAMPLES:
+User: "Set task #3 priority to high"
+operations: [{"operation": "update", "parameters": {"task_id": 3, "priority": "high"}}]
+response_template: "✓ Set task #3 priority to HIGH"
+
+User: "Change buy groceries to urgent priority"
+operations: [{"operation": "update", "parameters": {"title": "buy groceries", "priority": "urgent"}}]
+response_template: "✓ Changed 'buy groceries' priority to URGENT"
+
+User: "Create high priority task to call doctor"
+operations: [{"operation": "create", "parameters": {"title": "call doctor", "priority": "high"}}]
+response_template: "✓ Created HIGH priority task 'call doctor'"
+
+User: "Show me high priority tasks"
+operations: [{"operation": "filter", "parameters": {"priority": "high"}}]
+response_template: "{result}"
+
+User: "List urgent tasks"
+operations: [{"operation": "filter", "parameters": {"priority": "urgent"}}]
+response_template: "{result}"
+
 GENERAL CONVERSATION:
 User: "Hello" or "How are you?"
 intent: "general"
@@ -146,52 +150,8 @@ IMPORTANT RULES:
 - Use higher confidence for clear requests
 - Be intelligent about context and user intent"""
 
-    def _get_json_system_prompt(self) -> str:
-        """System prompt for JSON-only models (DeepSeek) - using prompt engineering instead of response_format"""
-        return self._get_system_prompt() + """
-
-CRITICAL JSON RESPONSE FORMAT:
-You MUST respond with ONLY a valid JSON object in this exact structure:
-
-{
-  "intent": "task_management" | "general" | "help",
-  "confidence": 0.0-1.0,
-  "user_message_analysis": "string describing what user wants",
-  "operations": [
-    {
-      "operation": "create|update|delete|list|filter",
-      "parameters": {"key": "value"}
-    }
-  ],
-  "response_template": "string with {result} placeholder if needed",
-  "requires_task_data": true | false
-}
-
-CRITICAL RULES:
-- Return ONLY the JSON object
-- NO explanations, markdown, or extra text
-- NO code blocks or formatting
-- Must be valid JSON that can be parsed
-- Follow the exact structure above"""
-
-    def _extract_json_from_text(self, text: str) -> Optional[str]:
-        """Extract JSON from text response"""
-   
-        text = re.sub(r'```(?:json)?\s*', '', text)
-        text = re.sub(r'\s*```', '', text)
-        
-        json_match = re.search(r'({[\s\S]*})', text.strip())
-        if json_match:
-            return json_match.group(1).strip()
-        
-        text = text.strip()
-        if text.startswith('{') and text.endswith('}'):
-            return text
-            
-        return None
-
-    def _process_with_structured_gemini(self, message: str, context: str = "") -> Optional[ChatProcessingResult]:
-        """Process with Gemini structured output"""
+    def _process_with_structured_llm(self, message: str, context: str = "") -> Optional[ChatProcessingResult]:
+        """Process with Ollama structured output"""
         try:
             if not self.structured_primary_llm:
                 return None
@@ -223,40 +183,6 @@ CRITICAL RULES:
 
             return None
 
-    def _process_with_json_deepseek(self, message: str, context: str = "") -> Optional[ChatProcessingResult]:
-        """Process with DeepSeek using pure prompt engineering (no response_format)"""
-        try:
-            if not self.structured_fallback_llm:
-                return None
-                
-            system_prompt = self._get_json_system_prompt()
-            if context:
-                system_prompt += f"\n\nCURRENT TASK CONTEXT:\n{context}"
-                
-            messages = [
-                SystemMessage(content=system_prompt),
-                HumanMessage(content=f'Analyze and process: "{message}"')
-            ]
-            
-            response = self.structured_fallback_llm.invoke(messages)
-            response_text = response.content.strip()
-            
-            json_text = self._extract_json_from_text(response_text)
-            if not json_text:
-                return None
-                
-            parsed_dict = json.loads(json_text)
-            
-            validated_result = ChatProcessingResult(**parsed_dict)
-
-            return validated_result
-            
-        except json.JSONDecodeError as e:
-            return None
-        except Exception as e:
-            return None
-
-
     def _get_current_task_context(self) -> str:
         result = list_task(skip=0, limit=20)
         tasks = result.get("tasks", [])
@@ -267,15 +193,41 @@ CRITICAL RULES:
         lines = [f"Current tasks ({len(tasks)} total):"]
         for entry in tasks[:10]:
             if isinstance(entry, dict):
+                task_id = entry["id"]
+                title = entry["title"]
                 status = entry["status"]
                 priority = entry["priority"]
-                due_text = f" (due: {entry['due_date']})" if entry.get("due_date") else ""
-                lines.append(f"- #{entry['id']}: {entry['title']} [{status}] [{priority}]{due_text}")
+                due_date = entry.get("due_date")
+                
+                # Format priority with emoji
+                priority_emoji = {"low": "🟢", "medium": "🟡", "high": "🟠", "urgent": "🔴"}.get(priority, "⚪")
+                priority_text = f"{priority_emoji}[{priority.upper()}]"
+                
+                # Format status with emoji
+                status_emoji = {"pending": "⏳", "in_progress": "🔄", "completed": "✅", "failed": "❌"}.get(status, "⚪")
+                
+                # Format due date
+                due_text = f" 📅{due_date}" if due_date else ""
+                
+                lines.append(f"- #{task_id}: {title} {status_emoji}[{status.upper()}] {priority_text}{due_text}")
             else:
+                task_id = entry.id
+                title = entry.title
                 status = entry.status.value
                 priority = entry.priority.value
-                due_text = f" (due: {entry.due_date:%Y-%m-%d})" if entry.due_date else ""
-                lines.append(f"- #{entry.id}: {entry.title} [{status}] [{priority}]{due_text}")
+                due_date = entry.due_date.strftime('%Y-%m-%d') if entry.due_date else None
+                
+                # Format priority with emoji
+                priority_emoji = {"low": "🟢", "medium": "🟡", "high": "🟠", "urgent": "🔴"}.get(priority, "⚪")
+                priority_text = f"{priority_emoji}[{priority.upper()}]"
+                
+                # Format status with emoji
+                status_emoji = {"pending": "⏳", "in_progress": "🔄", "completed": "✅", "failed": "❌"}.get(status, "⚪")
+                
+                # Format due date
+                due_text = f" 📅{due_date}" if due_date else ""
+                
+                lines.append(f"- #{task_id}: {title} {status_emoji}[{status.upper()}] {priority_text}{due_text}")
 
         return "\n".join(lines)
 
@@ -427,19 +379,31 @@ CRITICAL RULES:
                         formatted_result = f"📋 You have {len(tasks)} task{'s' if len(tasks) != 1 else ''}:\n\n"
                         for i, task in enumerate(tasks, 1):
                             if isinstance(task, dict):
+                                task_id = task["id"]
+                                title = task["title"]
                                 status = task["status"]
                                 priority = task["priority"] 
-                                title = task["title"]
                                 due_date = task.get("due_date")
-                                task_id = task["id"]
                             else:
+                                task_id = task.id
+                                title = task.title
                                 status = task.status.value if hasattr(task.status, 'value') else task.status
                                 priority = task.priority.value if hasattr(task.priority, 'value') else task.priority
-                                title = task.title
-                                due_date = task.due_date
-                                task_id = task.id
+                                due_date = task.due_date.strftime('%Y-%m-%d') if task.due_date else None
 
-                    
+                            # Format priority with emoji and color
+                            priority_emoji = {"low": "🟢", "medium": "🟡", "high": "🟠", "urgent": "🔴"}.get(priority, "⚪")
+                            priority_text = f"{priority_emoji}[{priority.upper()}]"
+                            
+                            # Format status with emoji
+                            status_emoji = {"pending": "⏳", "in_progress": "🔄", "completed": "✅", "failed": "❌"}.get(status, "⚪")
+                            status_text = f"{status_emoji}[{status.upper().replace('_', ' ')}]"
+                            
+                            # Format due date
+                            due_text = f" 📅{due_date}" if due_date else ""
+                            
+                            formatted_result += f"{i}. #{task_id}: {title}\n   {status_text} {priority_text}{due_text}\n\n"
+
                     results.append({"operation": operation, "success": True, "result": tasks, "formatted": formatted_result})
                     
                 elif operation == "filter":
@@ -474,12 +438,31 @@ CRITICAL RULES:
                     else:
                         formatted_result = f"📋 Found {len(tasks)} task{'s' if len(tasks) != 1 else ''} with {filter_text}:\n\n"
                         for i, task in enumerate(tasks, 1):
-                            status = task.status.value if hasattr(task.status, 'value') else task.status
-                            priority = task.priority.value if hasattr(task.priority, 'value') else task.priority
-                            status_emoji = "✅" if status == "completed" else "🔄" if status == "in_progress" else "⏳"
-                            priority_text = f"[{priority.upper()}]" if priority != "medium" else ""
-                            due_text = f" (Due: {task.due_date.strftime('%m/%d')})" if task.due_date else ""
-                            formatted_result += f"{status_emoji} {i}. {task.title} {priority_text}{due_text}\n"
+                            if isinstance(task, dict):
+                                task_id = task["id"]
+                                title = task["title"]
+                                status = task["status"]
+                                priority = task["priority"]
+                                due_date = task.get("due_date")
+                            else:
+                                task_id = task.id
+                                title = task.title
+                                status = task.status.value if hasattr(task.status, 'value') else task.status
+                                priority = task.priority.value if hasattr(task.priority, 'value') else task.priority
+                                due_date = task.due_date.strftime('%Y-%m-%d') if task.due_date else None
+
+                            # Format priority with emoji and color
+                            priority_emoji = {"low": "�", "medium": "🟡", "high": "🟠", "urgent": "🔴"}.get(priority, "⚪")
+                            priority_text = f"{priority_emoji}[{priority.upper()}]"
+                            
+                            # Format status with emoji
+                            status_emoji = {"pending": "⏳", "in_progress": "🔄", "completed": "✅", "failed": "❌"}.get(status, "⚪")
+                            status_text = f"{status_emoji}[{status.upper().replace('_', ' ')}]"
+                            
+                            # Format due date
+                            due_text = f" 📅{due_date}" if due_date else ""
+                            
+                            formatted_result += f"{i}. #{task_id}: {title}\n   {status_text} {priority_text}{due_text}\n\n"
                     
                     results.append({"operation": operation, "success": True, "result": tasks, "formatted": formatted_result, "filter": filter_text})
                     
@@ -495,7 +478,7 @@ CRITICAL RULES:
         if not operation_results:
             return template
         
-        if "{result}" in template:
+        if operation_results:
             formatted_results = []
             for result in operation_results:
                 if result.get("success"):
@@ -504,17 +487,17 @@ CRITICAL RULES:
                     elif "message" in result:
                         formatted_results.append(result["message"])
                 else:
-                    formatted_results.append(f"❌ {result.get('error', 'Operation failed')}")
+                    formatted_results.append(f" {result.get('error', 'Operation failed')}")
             
             combined_result = "\n\n".join(formatted_results) if formatted_results else "Operation completed"
-            return template.replace("{result}", combined_result)
+            return  combined_result
         
         additional_info = []
         for result in operation_results:
             if result.get("success") and "formatted" in result:
                 additional_info.append(result["formatted"])
             elif not result.get("success"):
-                additional_info.append(f"❌ {result.get('error', 'Operation failed')}")
+                additional_info.append(f" {result.get('error', 'Operation failed')}")
         
         if additional_info:
             return template + "\n\n" + "\n\n".join(additional_info)
@@ -526,21 +509,27 @@ CRITICAL RULES:
     
         try:
             context = ""
-            if any(word in message.lower() for word in ['update', 'delete', 'mark', 'remove', 'modify']):
+            if any(word in message.lower() for word in ['update', 'delete', 'mark', 'remove', 'modify', "list","show","filter"]):
                 context = self._get_current_task_context()
            
             processing_result = None
             llm_used = "none"
 
             if self.structured_primary_llm:
-                processing_result = self._process_with_structured_gemini(message, context)
+                processing_result = self._process_with_structured_llm(message, context)
                 if processing_result:
-                    llm_used = "gemini_structured"
+                    llm_used = "ollama_structured"
             
-            if not processing_result and self.structured_fallback_llm:
-                processing_result = self._process_with_json_deepseek(message, context)
-                if processing_result:
-                    llm_used = "deepseek_json"
+            # If no processing result, create a fallback response
+            if not processing_result:
+                processing_result = ChatProcessingResult(
+                    intent="general",
+                    confidence=0.5,
+                    user_message_analysis="Unable to process with primary LLM",
+                    operations=[],
+                    response_template="I'm having trouble understanding that request. Could you please rephrase it?",
+                    requires_task_data=False
+                )
             
             
             operation_results = []

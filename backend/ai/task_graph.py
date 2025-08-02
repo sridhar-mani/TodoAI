@@ -3,12 +3,7 @@ from typing import Dict, List, Any, Annotated
 from datetime import datetime
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, BaseMessage
 from langchain_core.tools import tool
-from langchain_google_genai import ChatGoogleGenerativeAI
-try:
-    from langchain_openai import ChatOpenAI
-    OPENAI_AVAILABLE = True
-except ImportError:
-    OPENAI_AVAILABLE = False
+from langchain_ollama import ChatOllama
 from langgraph.graph import StateGraph, END
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode
@@ -210,33 +205,17 @@ def filter_tasks_tool(status: str = None, priority: str = None, due_date: str = 
 tools = [create_task_tool, update_task_tool, delete_task_tool, list_tasks_tool, filter_tasks_tool]
 
 def get_llm():
-    """Get the configured LLM (Gemini or DeepSeek via LMStudio)"""
-    if settings.google_api_key:
-        try:
-            return ChatGoogleGenerativeAI(
-                model="gemini-1.5-pro",
-                google_api_key=settings.google_api_key,
-                temperature=0.1,
-                convert_system_message_to_human=True
-            )
-        except Exception as e:
-            raise e
-    
-    if OPENAI_AVAILABLE:
-        try:
-            return ChatOpenAI(
-                base_url=settings.lmstudio_base_url,
-                api_key="lm-studio",
-                model=settings.deepseek_model_name,
-                temperature=0.1,
-                max_tokens=2000
-            )
-        except Exception as e:
-            raise e
-    else:
-
-    
-        raise Exception("No LLM available - please configure GOOGLE_API_KEY or install langchain-openai for DeepSeek support")
+    """Get the configured LLM (Ollama Gemma)"""
+    # Use Ollama with Gemma model
+    try:
+        return ChatOllama(
+            model=settings.ollama_model_name,
+            base_url=settings.ollama_base_url,
+            temperature=0.1,
+        )
+    except Exception as e:
+        print(f"Failed to connect to Ollama: {e}")
+        raise Exception("No LLM available - please ensure Ollama is running with gemma3n:e2b model")
 
 SYSTEM_PROMPT = """You are a helpful task management assistant. You can help users manage their tasks through natural language commands.
 
@@ -254,11 +233,11 @@ When a user wants to create a task:
 
 When a user wants to update a task:
 1. Identify the task by ID number or by title
-2. Use update_task_tool with task_identifier and the fields to update
+2. Use update_task_tool with task id and the fields to update
 
 When a user wants to delete a task:
 1. Identify the task by ID number or by title
-2. Use delete_task_tool with the task_identifier
+2. Use delete_task_tool with the task id
 
 When a user wants to list tasks:
 1. Use list_tasks_tool to show all tasks
