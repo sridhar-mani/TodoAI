@@ -1,12 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ChatMessage, Attachment } from "@/lib/types";
 import type { UseChatHelpers } from "@ai-sdk/react";
 import { Messages } from "./messages";
 import { MultimodalInput } from "./multimodal-input";
 import { toast } from "./toast";
-import { useChatStore } from "../stores/chat-store";
 
 // Simple UUID generator
 function generateUUID(): string {
@@ -34,9 +33,34 @@ export function Chat({
   isReadonly,
   autoResume,
 }: ChatProps) {
-  const { messages, isLoading, addMessage, clearMessages, setIsLoading, setMessages } = useChatStore();
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [input, setInput] = useState<string>("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+
+  // Load messages from localStorage on component mount
+  useEffect(() => {
+    const savedMessages = localStorage.getItem('chat-messages');
+    if (savedMessages) {
+      try {
+        const parsedMessages = JSON.parse(savedMessages);
+        setMessages(parsedMessages);
+      } catch (error) {
+        // Failed to load saved messages
+      }
+    }
+  }, []);
+
+  // Save messages to localStorage whenever messages change
+  useEffect(() => {
+    if (messages.length > 0) {
+      localStorage.setItem('chat-messages', JSON.stringify(messages));
+    }
+  }, [messages]);
+
+  const addMessage = (message: ChatMessage) => {
+    setMessages(prev => [...prev, message]);
+  };
 
   const sendMessage = async (parts: { type: "text"; text: string }[]) => {
     const userMessage: ChatMessage = {
@@ -110,7 +134,6 @@ export function Chat({
       addMessage(assistantMessage);
 
     } catch (error) {
-      console.error("Error sending message:", error);
       toast({ 
         type: "error", 
         description: "Failed to send message. Please try again." 
@@ -137,6 +160,11 @@ export function Chat({
     setInput("");
   };
 
+  const clearMessages = () => {
+    setMessages([]);
+    localStorage.removeItem('chat-messages');
+  };
+
   return (
     <div className="flex flex-col min-w-0 h-dvh bg-white dark:bg-black">
       {/* Header */}
@@ -160,7 +188,7 @@ export function Chat({
             </div>
             <div>
               <h1 className="text-lg font-semibold text-black dark:text-white">
-                AI Assistant
+                Task Assistant
               </h1>
             </div>
           </div>

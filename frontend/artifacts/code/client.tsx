@@ -32,7 +32,7 @@ const OUTPUT_HANDLERS = {
     def setup_matplotlib_output():
         def custom_show():
             if plt.gcf().get_size_inches().prod() * plt.gcf().dpi ** 2 > 25_000_000:
-                print("Warning: Plot size too large, reducing quality")
+                # Warning: Plot size too large, reducing quality
                 plt.gcf().set_dpi(100)
 
             png_buf = io.BytesIO()

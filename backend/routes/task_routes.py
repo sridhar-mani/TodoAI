@@ -114,7 +114,6 @@ async def chat_endpoint(request: dict):
         }
         
     except Exception as e:
-        print(f"Chat endpoint error: {e}")
         raise HTTPException(status_code=500, detail=f"Error processing message: {str(e)}")
 
         

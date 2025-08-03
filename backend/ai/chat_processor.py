@@ -43,7 +43,6 @@ class ChatProcessor:
             )
             self.structured_primary_llm = self.primary_llm.with_structured_output(ChatProcessingResult)
         except Exception as e:
-            print(f"Failed to configure Ollama: {e}")
             raise Exception("No LLM available - please ensure Ollama is running with gemma3n:e2b model")
     def _get_system_prompt(self) -> str:
         """Comprehensive system prompt for LLM-driven task management"""
@@ -94,17 +93,17 @@ OPERATION EXAMPLES:
 CREATE TASK:
 User: "Create a task for deleting files"
 operations: [{"operation": "create", "parameters": {"title": "deleting files"}}]
-response_template: "Created task 'deleting files'"
+response_template: "✓ Created task 'deleting files'"
 
 UPDATE TASK:
 User: "Mark task 5 as completed"
 operations: [{"operation": "update", "parameters": {"task_id": 5, "status": "completed"}}]
-response_template: "Marked task #{task_id} as completed"
+response_template: "✓ Marked task #{task_id} as completed"
 
 DELETE TASK:
 User: "Delete the shopping task"
 operations: [{"operation": "delete", "parameters": {"title": "shopping"}}]
-response_template: "Deleted task 'shopping'"
+response_template: "✓ Deleted task 'shopping'"
 
 LIST TASKS:
 User: "Show me my tasks"
@@ -119,15 +118,15 @@ response_template: "{result}"
 PRIORITY MANAGEMENT EXAMPLES:
 User: "Set task #3 priority to high"
 operations: [{"operation": "update", "parameters": {"task_id": 3, "priority": "high"}}]
-response_template: "Set task #3 priority to HIGH"
+response_template: "✓ Set task #3 priority to HIGH"
 
 User: "Change buy groceries to urgent priority"
 operations: [{"operation": "update", "parameters": {"title": "buy groceries", "priority": "urgent"}}]
-response_template: "Changed 'buy groceries' priority to URGENT"
+response_template: "✓ Changed 'buy groceries' priority to URGENT"
 
 User: "Create high priority task to call doctor"
 operations: [{"operation": "create", "parameters": {"title": "call doctor", "priority": "high"}}]
-response_template: "Created HIGH priority task 'call doctor'"
+response_template: "✓ Created HIGH priority task 'call doctor'"
 
 User: "Show me high priority tasks"
 operations: [{"operation": "filter", "parameters": {"priority": "high"}}]
@@ -141,7 +140,7 @@ GENERAL CONVERSATION:
 User: "Hello" or "How are you?"
 intent: "general"
 operations: []
-response_template: "Hello! I'm here to help you manage your tasks. What would you like to do?"
+response_template: "👋 Hello! I'm here to help you manage your tasks. What would you like to do?"
 
 IMPORTANT RULES:
 - Always extract clean, concise task titles
@@ -199,10 +198,15 @@ IMPORTANT RULES:
                 priority = entry["priority"]
                 due_date = entry.get("due_date")
                 
-                # Format due date
-                due_text = f" | Due: {due_date}" if due_date else ""
+                # Format priority
+                priority_text = f"[{priority.upper()}]"
                 
-                lines.append(f"- {title} | Status: {status.upper()} | Priority: {priority.upper()}{due_text}")
+                # Format status
+                
+                # Format due date
+                due_text = f" Due: {due_date}" if due_date else ""
+                
+                lines.append(f"- #{task_id}: {title} [{status.upper()}] {priority_text}{due_text}")
             else:
                 task_id = entry.id
                 title = entry.title
@@ -210,10 +214,15 @@ IMPORTANT RULES:
                 priority = entry.priority.value
                 due_date = entry.due_date.strftime('%Y-%m-%d') if entry.due_date else None
                 
-                # Format due date
-                due_text = f" | Due: {due_date}" if due_date else ""
+                # Format priority
+                priority_text = f"[{priority.upper()}]"
                 
-                lines.append(f"- {title} | Status: {status.upper()} | Priority: {priority.upper()}{due_text}")
+                # Format status
+                
+                # Format due date
+                due_text = f" Due: {due_date}" if due_date else ""
+                
+                lines.append(f"- #{task_id}: {title} [{status.upper()}] {priority_text}{due_text}")
 
         return "\n".join(lines)
 
@@ -314,13 +323,8 @@ IMPORTANT RULES:
                     if params.get('task_id'):
                         result = delete_task(task_id=params['task_id'])
                         identifier = f"#{params['task_id']}"
-                        
-                        if result.get('error'):
-                            results.append({"operation": operation, "success": False, "error": result['error']})
-                        else:
-                            results.append({"operation": operation, "success": True, "result": result, "message": f"Deleted task {identifier}"})
-                            
                     elif params.get('title'):
+                     
                         all_tasks = list_task(skip=0, limit=100)
                         tasks = all_tasks.get('tasks', [])
                         
@@ -331,6 +335,7 @@ IMPORTANT RULES:
                                 task_to_delete = task
                                 break
 
+                        
                         if not task_to_delete:
                             results.append({
                                 "operation": operation,
@@ -338,21 +343,25 @@ IMPORTANT RULES:
                                 "error": f"Task '{params['title']}' not found"
                             })
                             continue
-                            
                         task_id = task_to_delete["id"] if isinstance(task_to_delete, dict) else task_to_delete.id
-                        result = delete_task(task_id=task_id)
+                        delete_res = delete_task(task_id=task_id)
 
-                        if result.get("error"):
-                            results.append({"operation": operation, "success": False, "error": result["error"]})
+                        if delete_res.get("error"):
+                            results.append({"operation": operation, "success": False, "error": delete_res["error"]})
                         else:
                             results.append({
                                 "operation": operation,
                                 "success": True,
-                                "result": result,
                                 "message": f"Deleted task '{params['title']}'"
                             })
                     else:
                         results.append({"operation": operation, "success": False, "error": "No task identifier provided"})
+                        continue
+                    
+                    if 'error' in result:
+                        results.append({"operation": operation, "success": False, "error": result['error']})
+                    else:
+                        results.append({"operation": operation, "success": True, "result": result, "message": f"Deleted task {identifier}"})
                     
                 elif operation == "list":
                     limit = params.get('limit', 100)
@@ -377,10 +386,16 @@ IMPORTANT RULES:
                                 priority = task.priority.value if hasattr(task.priority, 'value') else task.priority
                                 due_date = task.due_date.strftime('%Y-%m-%d') if task.due_date else None
 
-                            # Format due date
-                            due_text = f" | Due: {due_date}" if due_date else ""
+                            # Format priority
+                            priority_text = f"[{priority.upper()}]"
                             
-                            formatted_result += f"{i}. {title}\n   Status: {status.upper().replace('_', ' ')} | Priority: {priority.upper()}{due_text}\n\n"
+                            # Format status
+                            status_text = f"[{status.upper().replace('_', ' ')}]"
+                            
+                            # Format due date
+                            due_text = f" Due: {due_date}" if due_date else ""
+                            
+                            formatted_result += f"{i}. #{task_id}: {title}\n   {status_text} {priority_text}{due_text}\n\n"
 
                     results.append({"operation": operation, "success": True, "result": tasks, "formatted": formatted_result})
                     
@@ -412,9 +427,9 @@ IMPORTANT RULES:
                     filter_text = ", ".join(filter_desc) if filter_desc else "no filters"
                     
                     if not tasks:
-                        formatted_result = f"No tasks found with {filter_text}"
+                        formatted_result = f"📋 No tasks found with {filter_text}"
                     else:
-                        formatted_result = f"Found {len(tasks)} task{'s' if len(tasks) != 1 else ''} with {filter_text}:\n\n"
+                        formatted_result = f"📋 Found {len(tasks)} task{'s' if len(tasks) != 1 else ''} with {filter_text}:\n\n"
                         for i, task in enumerate(tasks, 1):
                             if isinstance(task, dict):
                                 task_id = task["id"]
@@ -429,10 +444,18 @@ IMPORTANT RULES:
                                 priority = task.priority.value if hasattr(task.priority, 'value') else task.priority
                                 due_date = task.due_date.strftime('%Y-%m-%d') if task.due_date else None
 
-                            # Format due date
-                            due_text = f" | Due: {due_date}" if due_date else ""
+                            # Format priority with emoji and color
+                            priority_emoji = {"low": "�", "medium": "🟡", "high": "🟠", "urgent": "🔴"}.get(priority, "⚪")
+                            priority_text = f"{priority_emoji}[{priority.upper()}]"
                             
-                            formatted_result += f"{i}. {title}\n   Status: {status.upper().replace('_', ' ')} | Priority: {priority.upper()}{due_text}\n\n"
+                            # Format status with emoji
+                            status_emoji = {"pending": "⏳", "in_progress": "🔄", "completed": "✅", "failed": "❌"}.get(status, "⚪")
+                            status_text = f"{status_emoji}[{status.upper().replace('_', ' ')}]"
+                            
+                            # Format due date
+                            due_text = f" 📅{due_date}" if due_date else ""
+                            
+                            formatted_result += f"{i}. #{task_id}: {title}\n   {status_text} {priority_text}{due_text}\n\n"
                     
                     results.append({"operation": operation, "success": True, "result": tasks, "formatted": formatted_result, "filter": filter_text})
                     

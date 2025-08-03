@@ -14,7 +14,7 @@ from routes.chat_routes import chat_router
 def create_app():
     app = FastAPI(
         title="Task Management API",
-        description="A task management system with AI agent support",
+        description="A task management system with intelligent task processing",
         version="1.0.0",
         docs_url="/docs",
     )

@@ -17,15 +17,15 @@ export const useSocket = () => {
     });
 
     socketInstance.on('connect', () => {
-      console.log('socket connected');
+      // Socket connected
     });
 
     socketInstance.on('disconnect', () => {
-      console.log('socket disconnected');
+      // Socket disconnected
     });
 
     socketInstance.on('connect_error', (error) => {
-      console.error('Socket connection error:', error);
+      // Socket connection error
     });
 
     setSocket(socketInstance);

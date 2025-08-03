@@ -214,7 +214,6 @@ def get_llm():
             temperature=0.1,
         )
     except Exception as e:
-        print(f"Failed to connect to Ollama: {e}")
         raise Exception("No LLM available - please ensure Ollama is running with gemma3n:e2b model")
 
 SYSTEM_PROMPT = """You are a helpful task management assistant. You can help users manage their tasks through natural language commands.

@@ -71,8 +71,8 @@ def list_task(skip: int = 0, limit: int = 10):
             "status": task.status.value if hasattr(task.status, "value") else task.status,
             "priority": task.priority.value if hasattr(task.priority, "value") else task.priority,
             "due_date": task.due_date.strftime("%Y-%m-%d") if task.due_date else None,
-            "created_at": task.created_at.isoformat() if task.created_at else None,
-            "updated_at": task.updated_at.isoformat() if task.updated_at else None,
+            "created_at": task.created_at.strftime("%Y-%m-%d") if task.created_at else None,
+            "updated_at": task.updated_at.isoformat(),
         }
         for task in tasks
     ],
@@ -89,7 +89,7 @@ def filter_tasks(status: str = None, priority: str = None, due_date: datetime = 
         priority=priority,
         due_date=due_date
     )
-    tasks = task_service.filter_tasks(filters=task_filter)
+    tasks = task_service.filter_tasks(task_filter=task_filter)
     return {
     "tasks": [
         {
@@ -99,8 +99,8 @@ def filter_tasks(status: str = None, priority: str = None, due_date: datetime = 
             "status": task.status.value if hasattr(task.status, "value") else task.status,
             "priority": task.priority.value if hasattr(task.priority, "value") else task.priority,
             "due_date": task.due_date.strftime("%Y-%m-%d") if task.due_date else None,
-            "created_at": task.created_at.isoformat() if task.created_at else None,
-            "updated_at": task.updated_at.isoformat() if task.updated_at else None,
+            "created_at": task.created_at.strftime("%Y-%m-%d") if task.created_at else None
+            ,"updated_at": task.updated_at.isoformat(),
         }
         for task in tasks
     ],

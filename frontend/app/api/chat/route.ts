@@ -70,7 +70,6 @@ export async function POST(request: NextRequest) {
             }),
           });
         } catch (error) {
-          console.error("Failed to store assistant message:", error);
           // Continue with the response even if storage fails
         }
 
@@ -100,7 +99,7 @@ export async function POST(request: NextRequest) {
         const errorText = await response.text();
       }
     } catch (backendError) {
-      console.warn("Backend connection failed:", backendError);
+      // Backend connection failed, continue with fallback
     }
 
     const encoder = new TextEncoder();
